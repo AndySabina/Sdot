@@ -1,0 +1,27 @@
+{
+	"name": "pi-sdot",
+	"version": "0.1.0",
+	"description": "Talk to your running pi session from your phone, hands-free, like a phone call.",
+	"type": "module",
+	"license": "MIT",
+	"keywords": [
+		"pi-package",
+		"voice",
+		"android"
+	],
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"test": "node --test \"test/**/*.test.ts\"",
+		"typecheck": "tsc --noEmit"
+	},
+	"engines": {
+		"node": ">=22.18"
+	}
+}

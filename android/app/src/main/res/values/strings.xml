@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sdot</string>
+
+    <string name="pair_title">Pair with pi</string>
+    <string name="pair_help">Run /call in pi on your computer and paste the pairing code it shows here.</string>
+    <string name="pair_hint">sdot1:…</string>
+    <string name="pair">Pair</string>
+    <string name="pair_error_malformed">That is not a valid Sdot pairing code. Copy the whole code that starts with sdot1:.</string>
+    <string name="pair_error_not_https">This pairing code uses an insecure address. Sdot only connects over HTTPS.</string>
+    <string name="pair_error_token">This pairing code has an invalid token. Run /call in pi again and copy the new code.</string>
+    <string name="paired_with">Paired with %1$s</string>
+    <string name="unpair">Unpair</string>
+
+    <string name="call">Call</string>
+    <string name="hang_up">Hang up</string>
+    <string name="interrupt">Interrupt</string>
+    <string name="stop_agent">Stop agent</string>
+
+    <string name="status_idle">Not in a call</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_listening">Listening</string>
+    <string name="status_working">Agent working</string>
+    <string name="status_speaking">Speaking</string>
+    <string name="status_reconnecting">Reconnecting…</string>
+
+    <string name="transcript_title">Transcript</string>
+    <string name="transcript_empty">Nothing said yet.</string>
+    <string name="transcript_you">You: %1$s</string>
+    <string name="transcript_agent">Agent: %1$s</string>
+    <string name="transcript_stopped">(agent stopped)</string>
+
+    <string name="channel_call">Call</string>
+    <string name="notification_title">Call with pi</string>
+
+    <string name="notice_no_on_device">Offline speech recognition is not available on this phone. Install or update Speech Recognition and Synthesis from Google (or another on-device speech engine), download the offline pack for your language in the phone\'s speech settings, then call again. You can still hear the agent.</string>
+    <string name="notice_downloading">Downloading the offline speech pack for %1$s. Listening starts as soon as it is ready.</string>
+    <string name="notice_language_unsupported">Offline speech recognition does not support %1$s on this phone. Download an offline pack for another language in the phone\'s speech settings or change the phone language.</string>
+    <string name="notice_mic_permission">Sdot needs the microphone to hear you. Allow it in Settings, Apps, Sdot, Permissions.</string>
+    <string name="notice_unauthorized">Your computer rejected this pairing. Run /call in pi again, unpair, and pair with the new code.</string>
+    <string name="notice_send_failed">Could not deliver what you said. Check the connection to your computer.</string>
+    <string name="notice_abort_failed">Could not stop the agent. Check the connection to your computer.</string>
+    <string name="notice_tts_unavailable">Text-to-speech is not available. Install or enable a speech engine in the phone settings.</string>
+    <string name="notice_start_failed">Could not start the call. Open Sdot, allow the microphone, and try again.</string>
+</resources>

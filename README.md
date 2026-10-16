@@ -67,7 +67,7 @@ For a natural voice, use **Speech Services by Google** as the text-to-speech eng
 
 ### 4. Install the app
 
-Build it (see [Building the app](#building-the-app)) and install `app-debug.apk` on your phone.
+Install the APK from the project's releases page, or build it yourself (see [Building the app](#building-the-app)) and install `app-debug.apk`. See [Updates](#updates) before mixing the two.
 
 ### 5. Pair and call
 
@@ -109,6 +109,7 @@ While a phone is connected, the extension adds a short "voice call" instruction 
 - Transport is HTTPS (Tailscale serve certificates) inside your private network. The app refuses plain HTTP and does not follow redirects.
 - The app stores the pairing in private storage, excluded from cloud backups, and never shows or logs the token.
 - To revoke access, delete the `token` file in the config directory and pair again.
+- The update check talks only to `api.github.com` without credentials. APK downloads follow redirects only to GitHub's HTTPS download hosts, are size-limited, and are installed only when the package name matches, the version is higher and the signing certificate is identical to the installed app.
 
 ## Building the app
 
@@ -121,6 +122,40 @@ echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 ```
 
 The APK is in `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+## Updates
+
+Published releases include a **Check for updates** button (it is hidden in builds made without `-Psdot.updateRepo=<owner>/<repo>`). It asks GitHub for the latest release of the configured repository and, when it is newer than the installed version, offers **Download & install**: the APK is downloaded over HTTPS from GitHub into the app's private storage, checked, and handed to Android, which asks you to confirm. The first time, Android asks you to allow **Install unknown apps** for Sdot.
+
+Sdot only installs an update that is the same app, has a higher version, and is signed with the **same key** as the installed app. A debug build you compiled yourself is signed with a different key, so to switch from it to release builds, uninstall Sdot once and install the release APK from the releases page (you will need to pair again). After that, updates work from the button.
+
+## Releasing
+
+For maintainers publishing APKs on GitHub Releases.
+
+1. Create a release keystore once, outside the repository:
+
+   ```sh
+   keytool -genkeypair -v -keystore /safe/place/sdot-release.jks -alias sdot \
+     -keyalg RSA -keysize 4096 -validity 10000
+   ```
+
+   Never commit the keystore or its passwords, and back both up: if you lose them, installed apps can no longer be updated and users must uninstall and reinstall.
+
+2. Build, test and sign:
+
+   ```sh
+   export SDOT_UPDATE_REPO=<owner>/<repo>
+   export SDOT_VERSION=1.2.3
+   export SDOT_KEYSTORE=/safe/place/sdot-release.jks
+   export SDOT_KEY_ALIAS=sdot
+   export SDOT_KEYSTORE_PASSWORD=... SDOT_KEY_PASSWORD=...
+   scripts/release-android.sh
+   ```
+
+   The version code is derived from the version (`major * 10000 + minor * 100 + patch`, minor and patch up to 99), so every release must use a higher version. The script prints the APK path, its SHA-256 and a suggested `gh release create v<version> ...` command.
+
+3. Review the APK and publish it with that `gh release create` command. The repository must be public for the app to see its releases.
 
 ## Development
 
@@ -142,7 +177,7 @@ Extension API (all routes need `Authorization: Bearer <token>`):
 
 ## Known limitations
 
-- Only a debug-signed APK is built; there is no store release yet.
+- Updates come from GitHub Releases only; there is no store release.
 - Some speech engines play a short beep each time listening restarts.
 - On the phone speaker, anything you say while the agent is talking is ignored by design (use a headset or the Interrupt button).
 

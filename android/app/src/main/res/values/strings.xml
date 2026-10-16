@@ -44,4 +44,25 @@
     <string name="notice_voice">Voice: %1$s.</string>
     <string name="notice_voice_hint">For a more natural voice, install Speech Services by Google, then in Settings, Text-to-speech output, choose it as the preferred engine and use Install voice data to download the voice for your language.</string>
     <string name="notice_start_failed">Could not start the call. Open Sdot, allow the microphone, and try again.</string>
+    <string name="version_label">Version %1$s</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_install">Download &amp; install</string>
+    <string name="update_open_settings">Open settings</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">Up to date (v%1$s)</string>
+    <string name="update_available">Update v%1$s available</string>
+    <string name="update_downloading">Downloading %1$d%%</string>
+    <string name="update_verifying">Checking the download…</string>
+    <string name="update_installing">Confirm the update in the Android install prompt.</string>
+    <string name="update_permission">Android needs your permission before Sdot can install updates. Open settings, allow Install unknown apps for Sdot, then come back and tap Download &amp; install.</string>
+    <string name="update_cancelled">Update cancelled.</string>
+    <string name="update_failed_network">Could not check for updates. Check your internet connection and try again.</string>
+    <string name="update_failed_http">GitHub did not answer as expected (HTTP %1$s). Try again later.</string>
+    <string name="update_failed_no_release">No published release was found.</string>
+    <string name="update_failed_bad_release">The latest release could not be read.</string>
+    <string name="update_failed_no_apk">Release v%1$s has no APK to install.</string>
+    <string name="update_failed_download">The download failed or was incomplete. Try again.</string>
+    <string name="update_failed_not_an_update">The downloaded file is not a newer version of Sdot, so it was not installed.</string>
+    <string name="update_failed_signature">This update is signed with a different key than the installed app, which was probably built locally (a debug build). Uninstall Sdot once and install the release APK from the releases page; after that, updates work from this button.</string>
+    <string name="update_failed_install">Android could not install the update (%1$s).</string>
 </resources>

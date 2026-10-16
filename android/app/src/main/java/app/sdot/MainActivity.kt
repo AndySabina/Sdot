@@ -2,9 +2,12 @@ package app.sdot
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
@@ -33,9 +36,12 @@ class MainActivity : Activity() {
     private lateinit var abortButton: Button
     private lateinit var unpairButton: Button
     private lateinit var transcriptView: TextView
+    private lateinit var updateStatusView: TextView
+    private lateinit var updateButton: Button
 
     private var localNotice: String? = null
     private val render: (CallSnapshot) -> Unit = { render(it) }
+    private val renderUpdate: (UpdateState) -> Unit = { renderUpdate(it) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,10 +52,17 @@ class MainActivity : Activity() {
     override fun onStart() {
         super.onStart()
         CallHub.addListener(render)
+        Updater.addListener(renderUpdate)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Updater.onResume(this)
     }
 
     override fun onStop() {
         CallHub.removeListener(render)
+        Updater.removeListener(renderUpdate)
         super.onStop()
     }
 
@@ -128,6 +141,47 @@ class MainActivity : Activity() {
         if (snapshot.inCall) scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
     }
 
+    private fun onUpdateButton() {
+        when (val state = Updater.state) {
+            is UpdateState.Available -> Updater.install(this, state.release)
+            is UpdateState.NeedsPermission -> {
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+                try {
+                    startActivity(intent)
+                } catch (e: RuntimeException) {
+                    startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES))
+                }
+            }
+            else -> Updater.check()
+        }
+    }
+
+    private fun renderUpdate(state: UpdateState) {
+        updateStatusView.text = when (state) {
+            UpdateState.Idle -> null
+            UpdateState.Checking -> getString(R.string.update_checking)
+            is UpdateState.UpToDate -> getString(R.string.update_up_to_date, state.version)
+            is UpdateState.Available -> getString(R.string.update_available, state.release.version)
+            is UpdateState.NeedsPermission -> getString(R.string.update_permission)
+            is UpdateState.Downloading -> getString(R.string.update_downloading, state.percent)
+            UpdateState.Verifying -> getString(R.string.update_verifying)
+            UpdateState.Installing -> getString(R.string.update_installing)
+            is UpdateState.Failed -> if (state.arg == null) getString(state.message) else getString(state.message, state.arg)
+        }
+        updateStatusView.visibility = if (state == UpdateState.Idle) View.GONE else View.VISIBLE
+        updateButton.setText(
+            when (state) {
+                is UpdateState.Available -> R.string.update_install
+                is UpdateState.NeedsPermission -> R.string.update_open_settings
+                else -> R.string.update_check
+            },
+        )
+        updateButton.isEnabled = when (state) {
+            UpdateState.Checking, is UpdateState.Downloading, UpdateState.Verifying, UpdateState.Installing -> false
+            else -> true
+        }
+    }
+
     private fun buildViews(): View {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -183,6 +237,20 @@ class MainActivity : Activity() {
         unpairButton = button(R.string.unpair) { onUnpair() }
         callPanel.addView(unpairButton, wide())
         content.addView(callPanel, wide())
+
+        // Updates sit below both panels, so they are reachable paired or not.
+        updateStatusView = text(0, 14f).apply { visibility = View.GONE }
+        updateButton = button(R.string.update_check) { onUpdateButton() }
+        if (Updater.enabled) {
+            content.addView(updateStatusView, wide())
+            content.addView(updateButton, wide())
+        }
+        content.addView(
+            text(0, 12f).apply {
+                text = getString(R.string.version_label, BuildConfig.VERSION_NAME)
+                alpha = 0.6f
+            },
+        )
 
         scroll = ScrollView(this).apply {
             isFillViewport = true

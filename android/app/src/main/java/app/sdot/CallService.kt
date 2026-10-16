@@ -182,6 +182,14 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
 
     override fun onUnavailable() = notice(getString(R.string.notice_tts_unavailable))
 
+    override fun onVoiceChosen(name: String?, lowQuality: Boolean) {
+        val voice = name?.let { getString(R.string.notice_voice, it) }
+        val hint = if (lowQuality) getString(R.string.notice_voice_hint) else null
+        val message = listOfNotNull(voice, hint).joinToString(" ")
+        // Shown once per call; keeps an earlier notice (for example a missing speech pack) visible.
+        CallHub.update { state -> state.copy(notice = state.notice?.let { "$it\n$message" } ?: message) }
+    }
+
     private fun speak(text: String) {
         CallHub.addLine(getString(R.string.transcript_agent, text))
         // Without a headset the loudspeaker would feed the agent's voice back into the recognizer.

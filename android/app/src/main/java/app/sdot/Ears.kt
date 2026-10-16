@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.RecognitionListener
 import android.speech.RecognitionSupport
 import android.speech.RecognitionSupportCallback
@@ -15,6 +16,7 @@ import java.util.Locale
 /**
  * Continuous on-device speech recognition. Never falls back to a cloud recognizer: if the
  * offline model is missing it asks the system to download it and tells the user.
+ * Segments heard close together are merged into one utterance before [Listener.onHeard].
  * Must be used from the main thread.
  */
 class Ears(private val context: Context, private val listener: Listener) {
@@ -31,8 +33,13 @@ class Ears(private val context: Context, private val listener: Listener) {
     private var ready = false
     private var paused = false
     private var listening = false
+    // Segmented sessions keep one recognition open across pauses; dropped if the engine rejects them.
+    private var segmented = true
+    private var segmentSeen = false
+    private val assembler = UtteranceAssembler(MERGE_GAP_MS) { SystemClock.elapsedRealtime() }
 
     private val listen = Runnable { listenNow() }
+    private val deliver = Runnable { deliverNow() }
     private val recheck = Runnable { checkSupport() }
 
     fun start() {
@@ -52,6 +59,9 @@ class Ears(private val context: Context, private val listener: Listener) {
         main.removeCallbacks(listen)
         if (listening) recognizer?.cancel()
         listening = false
+        // Send what was already heard instead of losing it with the cancelled session.
+        main.removeCallbacks(deliver)
+        assembler.flush()?.let(listener::onHeard)
     }
 
     fun resume(delayMs: Long = 300) {
@@ -64,6 +74,8 @@ class Ears(private val context: Context, private val listener: Listener) {
         started = false
         main.removeCallbacks(listen)
         main.removeCallbacks(recheck)
+        main.removeCallbacks(deliver)
+        assembler.clear()
         recognizer?.destroy()
         recognizer = null
         listening = false
@@ -142,35 +154,90 @@ class Ears(private val context: Context, private val listener: Listener) {
         .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         .putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
         .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-        .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        // Tolerate natural pauses instead of ending the utterance at the first breath.
+        .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, COMPLETE_SILENCE_MS)
+        .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, POSSIBLY_COMPLETE_SILENCE_MS)
+        .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, MINIMUM_LENGTH_MS)
+        .apply {
+            // API 33 (our minSdk): segments at each pause, session ends after the complete silence.
+            if (segmented) {
+                putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS)
+            }
+        }
+
+    private fun scheduleDelivery() {
+        main.removeCallbacks(deliver)
+        if (assembler.hasPending()) main.postDelayed(deliver, assembler.msUntilDue())
+    }
+
+    private fun deliverNow() {
+        if (!started) return
+        val text = assembler.takeIfDue()
+        if (text != null) listener.onHeard(text) else scheduleDelivery()
+    }
+
+    private fun firstResult(bundle: Bundle?): String? =
+        bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
 
     private fun displayName(): String = Locale.forLanguageTag(language).displayName
 
     private val callbacks = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {}
-        override fun onBeginningOfSpeech() = listener.onSpeechStart()
+        override fun onBeginningOfSpeech() {
+            assembler.activity()
+            listener.onSpeechStart()
+        }
         override fun onRmsChanged(rmsdB: Float) {}
         override fun onBufferReceived(buffer: ByteArray?) {}
         override fun onEndOfSpeech() {}
-        override fun onPartialResults(partialResults: Bundle?) {}
         override fun onEvent(eventType: Int, params: Bundle?) {}
+
+        override fun onPartialResults(partialResults: Bundle?) {
+            if (started && !paused) assembler.partial(firstResult(partialResults))
+        }
+
+        override fun onSegmentResults(segmentResults: Bundle) {
+            segmentSeen = true
+            if (!started || paused) return
+            assembler.segment(firstResult(segmentResults))
+            scheduleDelivery()
+        }
+
+        override fun onEndOfSegmentedSession() {
+            listening = false
+            if (!started || paused) return
+            assembler.endWithoutResult()
+            scheduleDelivery()
+            // Restart at once: speech in the gap would lose the start of the next sentence.
+            listenSoon(0)
+        }
 
         override fun onResults(results: Bundle?) {
             listening = false
-            val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
-            if (started && !paused && !text.isNullOrEmpty()) listener.onHeard(text)
-            listenSoon(RESTART_MS)
+            if (!started || paused) return
+            assembler.segment(firstResult(results))
+            scheduleDelivery()
+            listenSoon(0)
         }
 
         override fun onError(error: Int) {
             listening = false
             if (!started) return
+            if (!paused) {
+                assembler.endWithoutResult()
+                scheduleDelivery()
+            }
             when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH,
-                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> listenSoon(RESTART_MS)
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> listenSoon(0)
                 SpeechRecognizer.ERROR_CLIENT,
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> listenSoon(500)
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
+                    // An engine without segmented sessions may reject the request; use plain sessions.
+                    if (segmented && !segmentSeen) segmented = false
+                    listenSoon(500)
+                }
                 SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
                     stop()
                     listener.onNotice(context.getString(R.string.notice_mic_permission))
@@ -188,7 +255,10 @@ class Ears(private val context: Context, private val listener: Listener) {
     }
 
     private companion object {
-        const val RESTART_MS = 150L
+        const val COMPLETE_SILENCE_MS = 2000L
+        const val POSSIBLY_COMPLETE_SILENCE_MS = 1500L
+        const val MINIMUM_LENGTH_MS = 1000L
+        const val MERGE_GAP_MS = 1200L
         const val RECHECK_MS = 15_000L
     }
 }

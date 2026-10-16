@@ -1,6 +1,7 @@
 package app.sdot
 
 import android.content.Context
+import android.content.Intent
 import android.media.AudioAttributes
 import android.os.Handler
 import android.os.Looper
@@ -8,11 +9,16 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
-/** Queued platform text-to-speech that reports when it starts and stops talking. Main thread only. */
+/**
+ * Queued platform text-to-speech that reports when it starts and stops talking. Prefers Google's
+ * engine and the best offline voice for the phone language. Main thread only.
+ */
 class Mouth(context: Context, private val listener: Listener) {
     interface Listener {
         fun onSpeakingChanged(speaking: Boolean)
         fun onUnavailable()
+        /** [name] is null when no offline voice matches the language; [lowQuality] suggests installing one. */
+        fun onVoiceChosen(name: String?, lowQuality: Boolean)
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -23,9 +29,9 @@ class Mouth(context: Context, private val listener: Listener) {
     private var counter = 0
     private var speaking = false
 
-    private val tts: TextToSpeech = TextToSpeech(context.applicationContext) { status ->
+    private val tts: TextToSpeech = TextToSpeech(context.applicationContext, { status ->
         main.post { onInit(status) }
-    }
+    }, preferredEngine(context))
 
     val isSpeaking: Boolean get() = speaking
 
@@ -69,6 +75,9 @@ class Mouth(context: Context, private val listener: Listener) {
                 .build(),
         )
         tts.setLanguage(Locale.getDefault())
+        chooseVoice()
+        tts.setSpeechRate(1.0f)
+        tts.setPitch(1.0f)
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String) {}
             override fun onDone(utteranceId: String) = finished(utteranceId)
@@ -81,6 +90,27 @@ class Mouth(context: Context, private val listener: Listener) {
         backlog.forEach(::enqueue)
         backlog.clear()
         refresh()
+    }
+
+    private fun chooseVoice() {
+        val voices = try {
+            tts.voices?.toList().orEmpty()
+        } catch (e: RuntimeException) {
+            emptyList()
+        }
+        val options = voices.map {
+            VoiceOption(
+                name = it.name,
+                locale = it.locale,
+                quality = it.quality,
+                latency = it.latency,
+                networkRequired = it.isNetworkConnectionRequired,
+                installed = TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED !in it.features.orEmpty(),
+            )
+        }
+        val best = Voices.best(options, Locale.getDefault())
+        if (best != null) voices.firstOrNull { it.name == best.name }?.let(tts::setVoice)
+        listener.onVoiceChosen(best?.name, Voices.isLowQuality(best))
     }
 
     private fun enqueue(text: String) {
@@ -102,4 +132,12 @@ class Mouth(context: Context, private val listener: Listener) {
         speaking = now
         listener.onSpeakingChanged(now)
     }
+}
+
+private const val GOOGLE_TTS = "com.google.android.tts"
+
+/** Google's engine ships natural offline voices; null keeps the user's default engine. */
+private fun preferredEngine(context: Context): String? {
+    val engines = context.packageManager.queryIntentServices(Intent(TextToSpeech.Engine.INTENT_ACTION_TTS_SERVICE), 0)
+    return GOOGLE_TTS.takeIf { engines.any { it.serviceInfo?.packageName == GOOGLE_TTS } }
 }

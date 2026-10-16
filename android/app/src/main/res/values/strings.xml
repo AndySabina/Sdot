@@ -41,5 +41,7 @@
     <string name="notice_send_failed">Could not deliver what you said. Check the connection to your computer.</string>
     <string name="notice_abort_failed">Could not stop the agent. Check the connection to your computer.</string>
     <string name="notice_tts_unavailable">Text-to-speech is not available. Install or enable a speech engine in the phone settings.</string>
+    <string name="notice_voice">Voice: %1$s.</string>
+    <string name="notice_voice_hint">For a more natural voice, install Speech Services by Google, then in Settings, Text-to-speech output, choose it as the preferred engine and use Install voice data to download the voice for your language.</string>
     <string name="notice_start_failed">Could not start the call. Open Sdot, allow the microphone, and try again.</string>
 </resources>

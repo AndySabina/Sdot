@@ -19,6 +19,7 @@ speaker ◄─ text-to-speech ◄─ sentences ◄──── streamed while th
 ## How a call feels
 
 - Say what you want. If the agent is idle it starts working; if it is busy, your words steer the current run.
+- Speak naturally: pauses of up to about 2 seconds stay in the same message. A longer silence sends what you said.
 - The agent answers in short spoken sentences while it writes them. Code, diffs and paths stay in the terminal.
 - While it works you hear a soft tick for each tool it runs, and a tone when it finishes.
 - **With a headset** you can interrupt it mid-sentence just by talking. On the phone speaker it pauses listening while it talks (otherwise it would hear itself); use the **Interrupt** button.
@@ -61,6 +62,8 @@ Sdot only uses on-device recognition. Download your language once:
 - **Google app → Settings → Voice → Offline speech recognition**.
 
 The app also offers to start the download when your language is missing.
+
+For a natural voice, use **Speech Services by Google** as the text-to-speech engine with the offline voice for your language installed: **Settings → Text-to-speech output → Preferred engine → Speech Services by Google**, then **Install voice data** and download your language. Sdot picks the best installed offline voice and shows its name when a call starts.
 
 ### 4. Install the app
 

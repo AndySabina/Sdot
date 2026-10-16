@@ -1,0 +1,26 @@
+# Local agent tooling and planning notes (never published)
+.atl/
+odd/
+.pi/
+
+# Node
+node_modules/
+*.log
+
+# Android / Gradle
+.gradle/
+.kotlin/
+build/
+local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+captures/
+.idea/
+*.iml
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/

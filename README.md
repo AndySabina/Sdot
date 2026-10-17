@@ -22,8 +22,10 @@ speaker ◄─ text-to-speech ◄─ sentences ◄──── streamed while th
 - Speak naturally: pauses of up to about 2 seconds stay in the same message. A longer silence sends what you said.
 - The agent answers in short spoken sentences while it writes them. Code, diffs and paths stay in the terminal.
 - While it works you hear a soft tick for each tool it runs, and a tone when it finishes.
-- **With a headset** you can interrupt it mid-sentence just by talking. On the phone speaker it pauses listening while it talks (otherwise it would hear itself); use the **Interrupt** button.
-- **Stop agent** aborts the current run, like pressing Escape.
+- The call screen looks like a phone call: a circle with the name of your pi session, the call time, **Mute** and **Hang up**. The circle glows while the agent talks.
+- **With a headset** you can interrupt it mid-sentence just by talking. On the phone speaker it pauses listening while it talks (otherwise it would hear itself); tap the circle to interrupt.
+- **Mute** stops the microphone: nothing you say is sent until you unmute. The call notification has Mute and Hang up too.
+- The **⋯** menu has the transcript, **Stop agent** (aborts the current run, like pressing Escape), **Check for updates** and **Unpair**.
 
 Expect a short pause (a few seconds) before each answer: the reply comes from your coding model, not from a dedicated speech-to-speech model.
 
@@ -125,9 +127,9 @@ The APK is in `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Updates
 
-Published releases include a **Check for updates** button (it is hidden in builds made without `-Psdot.updateRepo=<owner>/<repo>`). It asks GitHub for the latest release of the configured repository and, when it is newer than the installed version, offers **Download & install**: the APK is downloaded over HTTPS from GitHub into the app's private storage, checked, and handed to Android, which asks you to confirm. The first time, Android asks you to allow **Install unknown apps** for Sdot.
+Published releases include **Check for updates** in the **⋯** menu (it is hidden in builds made without `-Psdot.updateRepo=<owner>/<repo>`). It asks GitHub for the latest release of the configured repository and, when it is newer than the installed version, offers **Download & install**: the APK is downloaded over HTTPS from GitHub into the app's private storage, checked, and handed to Android, which asks you to confirm. The first time, Android asks you to allow **Install unknown apps** for Sdot.
 
-Sdot only installs an update that is the same app, has a higher version, and is signed with the **same key** as the installed app. A debug build you compiled yourself is signed with a different key, so to switch from it to release builds, uninstall Sdot once and install the release APK from the releases page (you will need to pair again). After that, updates work from the button.
+Sdot only installs an update that is the same app, has a higher version, and is signed with the **same key** as the installed app. A debug build you compiled yourself is signed with a different key, so to switch from it to release builds, uninstall Sdot once and install the release APK from the releases page (you will need to pair again). After that, updates work from the menu.
 
 ## Releasing
 
@@ -179,7 +181,7 @@ Extension API (all routes need `Authorization: Bearer <token>`):
 
 - Updates come from GitHub Releases only; there is no store release.
 - Some speech engines play a short beep each time listening restarts.
-- On the phone speaker, anything you say while the agent is talking is ignored by design (use a headset or the Interrupt button).
+- On the phone speaker, anything you say while the agent is talking is ignored by design (use a headset, or tap the circle to interrupt).
 
 ## License
 

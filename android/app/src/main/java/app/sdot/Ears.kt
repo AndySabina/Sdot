@@ -53,15 +53,18 @@ class Ears(private val context: Context, private val listener: Listener) {
         checkSupport()
     }
 
-    /** Stops listening until [resume]; used while the agent talks through the loudspeaker. */
-    fun pause() {
+    /**
+     * Stops listening until [resume]; used while the agent talks through the loudspeaker and while muted.
+     * With [discard] the words heard so far are dropped instead of sent.
+     */
+    fun pause(discard: Boolean = false) {
         paused = true
         main.removeCallbacks(listen)
         if (listening) recognizer?.cancel()
         listening = false
         // Send what was already heard instead of losing it with the cancelled session.
         main.removeCallbacks(deliver)
-        assembler.flush()?.let(listener::onHeard)
+        if (discard) assembler.clear() else assembler.flush()?.let(listener::onHeard)
     }
 
     fun resume(delayMs: Long = 300) {

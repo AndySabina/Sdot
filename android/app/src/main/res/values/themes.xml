@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Sdot" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/call_background</item>
+        <item name="android:colorBackground">@color/call_background</item>
+        <item name="android:colorAccent">@color/session_gradient_start</item>
+        <item name="android:textColorPrimary">@color/call_on_surface</item>
+        <item name="android:textColorSecondary">@color/call_text_secondary</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

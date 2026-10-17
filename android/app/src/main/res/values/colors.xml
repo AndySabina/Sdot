@@ -1,4 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="launcher_background">#FF1B2A41</color>
+
+    <!-- Call screen: a dark, calm surface so the session circle carries the color. -->
+    <color name="call_background">#FF0B0E14</color>
+    <color name="call_surface">#FF1C2230</color>
+    <color name="call_surface_pressed">#33FFFFFF</color>
+    <color name="call_on_surface">#FFF2F4F8</color>
+    <color name="call_text_secondary">#FFA9B1C1</color>
+    <color name="call_outline">#FF2C3444</color>
+
+    <!-- Session circle gradient: ember to plum, deep enough for white bold text. -->
+    <color name="session_gradient_start">#FFD9572F</color>
+    <color name="session_gradient_middle">#FFB8336A</color>
+    <color name="session_gradient_end">#FF4B2A9A</color>
+
+    <color name="call_accept">#FF1E9E50</color>
+    <color name="call_hang_up">#FFE0393B</color>
+    <color name="call_error">#FFFF8A80</color>
 </resources>

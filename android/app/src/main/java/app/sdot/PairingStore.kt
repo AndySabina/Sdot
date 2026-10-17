@@ -7,6 +7,7 @@ object PairingStore {
     private const val FILE = "pairing"
     private const val KEY_URL = "url"
     private const val KEY_TOKEN = "token"
+    private const val KEY_SESSION = "session"
 
     fun load(context: Context): Pairing? {
         val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -20,6 +21,14 @@ object PairingStore {
             .putString(KEY_URL, pairing.url)
             .putString(KEY_TOKEN, pairing.token)
             .apply()
+    }
+
+    /** Last pi session name seen in a call, shown on the idle screen; cleared with the pairing. */
+    fun loadSession(context: Context): String? =
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString(KEY_SESSION, null)
+
+    fun saveSession(context: Context, name: String) {
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString(KEY_SESSION, name).apply()
     }
 
     fun clear(context: Context) {

@@ -12,6 +12,7 @@ import android.graphics.drawable.Icon
 import android.media.AudioManager
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 
 /**
  * The call: a microphone foreground service that streams agent events, speaks them,
@@ -29,7 +30,9 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
     private var agentBusy = false
     private var speaking = false
     private var idleTonePending = false
-    private var shownStatus: CallStatus? = null
+    private var muted = false
+    private var session = SessionLabel.FALLBACK
+    private var shownNotification: Pair<CallStatus, Boolean>? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -38,6 +41,7 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
             ACTION_START -> startCall()
             ACTION_HANG_UP -> hangUp()
             ACTION_INTERRUPT -> mouth?.stop()
+            ACTION_TOGGLE_MUTE -> toggleMute()
             ACTION_ABORT -> abortAgent()
         }
         if (client == null) stopSelf()
@@ -56,7 +60,7 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
             startForeground(NOTIFICATION_ID, notification(CallStatus.CONNECTING), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
         } catch (e: RuntimeException) {
             // Missing microphone permission or started from the background.
-            CallHub.update { it.copy(notice = getString(R.string.notice_start_failed)) }
+            CallHub.notice(getString(R.string.notice_start_failed))
             return
         }
         val pairing = PairingStore.load(this) ?: run {
@@ -71,8 +75,12 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
         agentBusy = false
         speaking = false
         idleTonePending = false
-        shownStatus = null
-        CallHub.update { it.copy(inCall = true, status = CallStatus.CONNECTING, notice = null) }
+        muted = false
+        session = SessionLabel.normalize(PairingStore.loadSession(this))
+        shownNotification = null
+        CallHub.update {
+            it.copy(inCall = true, status = CallStatus.CONNECTING, notice = null, muted = false, connectedAtMs = null)
+        }
         earcons = Earcons()
         mouth = Mouth(this, this)
         ears = Ears(this, this).also { it.start() }
@@ -92,9 +100,23 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
         earcons = null
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
-        CallHub.update { it.copy(inCall = false, status = CallStatus.IDLE) }
+        muted = false
+        CallHub.update { it.copy(inCall = false, status = CallStatus.IDLE, muted = false, connectedAtMs = null) }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    /** Muting stops the recognizer and drops anything half heard; nothing is sent until unmuted. */
+    private fun toggleMute() {
+        if (client == null) return
+        muted = !muted
+        if (muted) {
+            ears?.pause(discard = true)
+        } else if (!speaking || headset()) {
+            ears?.resume(0)
+        }
+        CallHub.update { it.copy(muted = muted) }
+        refresh()
     }
 
     private fun abortAgent() {
@@ -123,6 +145,7 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
             "hello" -> {
                 connected = true
                 agentBusy = data["busy"] == true
+                onSession(data["session"] as? String)
             }
             "speech" -> (data["text"] as? String)?.takeIf { it.isNotBlank() }?.let(::speak)
             "activity" -> {
@@ -149,6 +172,7 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
 
     override fun onHeard(text: String) {
         val active = client ?: return
+        if (muted) return
         CallHub.addLine(getString(R.string.transcript_you, text))
         active.say(text) { result ->
             when (result) {
@@ -161,7 +185,7 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
 
     override fun onSpeechStart() {
         // Barge-in: only reachable while speaking when a headset keeps the recognizer running.
-        if (speaking && headset()) mouth?.stop()
+        if (speaking && !muted && headset()) mouth?.stop()
     }
 
     override fun onNotice(message: String) = notice(message)
@@ -175,7 +199,7 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
                 idleTonePending = false
                 earcons?.idle()
             }
-            ears?.resume(RESUME_AFTER_SPEECH_MS)
+            if (!muted) ears?.resume(RESUME_AFTER_SPEECH_MS)
         }
         refresh()
     }
@@ -185,9 +209,18 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
     override fun onVoiceChosen(name: String?, lowQuality: Boolean) {
         val voice = name?.let { getString(R.string.notice_voice, it) }
         val hint = if (lowQuality) getString(R.string.notice_voice_hint) else null
-        val message = listOfNotNull(voice, hint).joinToString(" ")
-        // Shown once per call; keeps an earlier notice (for example a missing speech pack) visible.
-        CallHub.update { state -> state.copy(notice = state.notice?.let { "$it\n$message" } ?: message) }
+        notice(listOfNotNull(voice, hint).joinToString(" "))
+    }
+
+    private fun onSession(raw: String?) {
+        val name = SessionLabel.normalize(raw)
+        if (name != session) {
+            session = name
+            PairingStore.saveSession(this, name)
+            shownNotification = null
+        }
+        // The call timer starts at the first connection and keeps running across reconnects.
+        CallHub.update { it.copy(session = name, connectedAtMs = it.connectedAtMs ?: SystemClock.elapsedRealtime()) }
     }
 
     private fun speak(text: String) {
@@ -199,7 +232,7 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
 
     private fun headset() = Headset.connected(getSystemService(AudioManager::class.java))
 
-    private fun notice(message: String) = CallHub.update { it.copy(notice = message) }
+    private fun notice(message: String) = CallHub.notice(message)
 
     private fun refresh() {
         if (client == null) return
@@ -211,8 +244,8 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
             else -> CallStatus.LISTENING
         }
         CallHub.update { it.copy(status = status) }
-        if (status != shownStatus) {
-            shownStatus = status
+        if (status to muted != shownNotification) {
+            shownNotification = status to muted
             getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(status))
         }
     }
@@ -225,22 +258,30 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
         )
-        return Notification.Builder(this, CHANNEL_ID)
+        val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(getString(R.string.notification_title))
-            .setContentText(getString(statusLabel(status)))
+            .setContentTitle(getString(R.string.notification_title, session))
+            .setContentText(getString(statusLabel(status, muted)))
             .setContentIntent(open)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-            .addAction(action(ACTION_INTERRUPT, R.string.interrupt, 1))
-            .addAction(action(ACTION_HANG_UP, R.string.hang_up, 2))
+        if (status == CallStatus.SPEAKING) builder.addAction(action(ACTION_INTERRUPT, R.string.interrupt, R.drawable.ic_notification, 1))
+        return builder
+            .addAction(
+                if (muted) {
+                    action(ACTION_TOGGLE_MUTE, R.string.unmute, R.drawable.ic_mic, 3)
+                } else {
+                    action(ACTION_TOGGLE_MUTE, R.string.mute, R.drawable.ic_mic_off, 3)
+                },
+            )
+            .addAction(action(ACTION_HANG_UP, R.string.hang_up, R.drawable.ic_call_end, 2))
             .build()
     }
 
-    private fun action(action: String, label: Int, requestCode: Int): Notification.Action {
+    private fun action(action: String, label: Int, icon: Int, requestCode: Int): Notification.Action {
         val pending = PendingIntent.getService(this, requestCode, intent(this, action), PendingIntent.FLAG_IMMUTABLE)
-        return Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_notification), getString(label), pending).build()
+        return Notification.Action.Builder(Icon.createWithResource(this, icon), getString(label), pending).build()
     }
 
     companion object {
@@ -248,6 +289,7 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
         const val ACTION_HANG_UP = "app.sdot.action.HANG_UP"
         const val ACTION_INTERRUPT = "app.sdot.action.INTERRUPT"
         const val ACTION_ABORT = "app.sdot.action.ABORT"
+        const val ACTION_TOGGLE_MUTE = "app.sdot.action.TOGGLE_MUTE"
 
         private const val NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "call"
@@ -255,6 +297,10 @@ class CallService : Service(), SdotClient.Listener, Ears.Listener, Mouth.Listene
 
         fun intent(context: Context, action: String): Intent =
             Intent(context, CallService::class.java).setAction(action)
+
+        /** While muted, "Listening" would be untrue; the other states still describe the call. */
+        fun statusLabel(status: CallStatus, muted: Boolean): Int =
+            if (muted && status == CallStatus.LISTENING) R.string.status_muted else statusLabel(status)
 
         fun statusLabel(status: CallStatus): Int = when (status) {
             CallStatus.IDLE -> R.string.status_idle

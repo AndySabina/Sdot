@@ -11,11 +11,26 @@
     <string name="pair_error_token">This pairing code has an invalid token. Run /call in pi again and copy the new code.</string>
     <string name="paired_with">Paired with %1$s</string>
     <string name="unpair">Unpair</string>
+    <string name="unpair_confirm_title">Unpair this phone?</string>
+    <string name="unpair_confirm_message">To call again you will need a new pairing code from /call in pi.</string>
+    <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
+    <string name="more_options">More options</string>
 
     <string name="call">Call</string>
     <string name="hang_up">Hang up</string>
     <string name="interrupt">Interrupt</string>
     <string name="stop_agent">Stop agent</string>
+    <string name="call_description">Call pi</string>
+    <string name="mute">Mute</string>
+    <string name="unmute">Unmute</string>
+    <string name="mute_description">Mute microphone</string>
+    <string name="unmute_description">Unmute microphone</string>
+    <string name="state_muted">Muted</string>
+    <string name="state_unmuted">Microphone on</string>
+    <string name="session_description">Session %1$s</string>
+    <string name="session_interrupt_action">interrupt the agent</string>
+    <string name="notice_details">Notice</string>
 
     <string name="status_idle">Not in a call</string>
     <string name="status_connecting">Connecting…</string>
@@ -23,6 +38,7 @@
     <string name="status_working">Agent working</string>
     <string name="status_speaking">Speaking</string>
     <string name="status_reconnecting">Reconnecting…</string>
+    <string name="status_muted">Muted</string>
 
     <string name="transcript_title">Transcript</string>
     <string name="transcript_empty">Nothing said yet.</string>
@@ -31,7 +47,7 @@
     <string name="transcript_stopped">(agent stopped)</string>
 
     <string name="channel_call">Call</string>
-    <string name="notification_title">Call with pi</string>
+    <string name="notification_title">Call with %1$s</string>
 
     <string name="notice_no_on_device">Offline speech recognition is not available on this phone. Install or update Speech Recognition and Synthesis from Google (or another on-device speech engine), download the offline pack for your language in the phone\'s speech settings, then call again. You can still hear the agent.</string>
     <string name="notice_downloading">Downloading the offline speech pack for %1$s. Listening starts as soon as it is ready.</string>
@@ -46,6 +62,7 @@
     <string name="notice_start_failed">Could not start the call. Open Sdot, allow the microphone, and try again.</string>
     <string name="version_label">Version %1$s</string>
     <string name="update_check">Check for updates</string>
+    <string name="update_title">Updates</string>
     <string name="update_install">Download &amp; install</string>
     <string name="update_open_settings">Open settings</string>
     <string name="update_checking">Checking…</string>
